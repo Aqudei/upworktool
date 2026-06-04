@@ -1,5 +1,5 @@
 import json
-from pathlib import _PathT, Path
+from pathlib import Path
 from telegram import Update
 from telegram.ext import ContextTypes
 import httpx
