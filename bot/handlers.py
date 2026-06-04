@@ -46,7 +46,7 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
             "query": query,
             "variables": {
                 "filter": {
-                    "pagination_eq": {"after": "0", "first":20}
+                    "pagination_eq": {"after": "0", "first":10}
                 }
             }
         } 
