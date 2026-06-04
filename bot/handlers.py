@@ -15,11 +15,7 @@ CLIENT_ID = os.getenv("UPWORK_CLIENT_ID")
 CLIENT_SECRET = os.getenv("UPWORK_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("UPWORK_REDIRECT_URI")
 
-
 logger = logging.getLogger(__name__)
-
-
-
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
@@ -48,11 +44,11 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
         query = Path("./query.gql").read_text()
         payload = {
             "query": query,
-            # "variables": {
-            #     "filter": {
-            #         "searchTerm_eq": "python OR desktop"
-            #     }
-            # }
+            "variables": {
+                "filter": {
+                    "pagination_eq": {"after": "0", "first":20}
+                }
+            }
         } 
         
         # Assuming the GraphQL query and variables are stored in a dictionary named 'payload'
@@ -69,6 +65,11 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
                 return
                 
             response.raise_for_status()
+            
+            if 'error' in response.text:
+                logger.error(f"GraphQL error response for chat {chat_id}: {response.text}")
+                await context.bot.send_message(chat_id, "An error occurred while fetching jobs. Please try again later.")
+                return
             
             # Renamed the parsed response variable to avoid shadowing the request payload
             response_data = response.json()

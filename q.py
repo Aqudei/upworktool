@@ -5,6 +5,9 @@ import httpx
 import os
 from pathlib import Path
 import asyncio
+import dotenv
+
+dotenv.load_dotenv()
 
 token = os.getenv("UPWORK_ACCESS_TOKEN")
 
@@ -12,11 +15,11 @@ async def main():
     query = Path("./query.gql").read_text()
     payload = {
         "query": query,
-        # "variables": {
-        #     "filter": {
-        #         "searchTerm_eq": "python OR desktop"
-        #     }
-        # }
+        "variables": {
+            "filter": {
+                "pagination_eq": {"after": "0", "first":20}
+            }
+        }
     } 
     
     headers = {
@@ -38,9 +41,13 @@ async def main():
             return
             
         response.raise_for_status()
+        if 'error' in response.text:
+            print("GraphQL error:", response.text)
+            return
         
         # Renamed the parsed response variable to avoid shadowing the request payload
         response_data = response.json()
+        
         jobs = response_data.get("data", {}).get("marketplaceJobPostingsSearch", {})
         
         # Simplified the condition to check for empty dictionaries or None
@@ -55,7 +62,7 @@ async def main():
             
             # Upwork job URLs are constructed using the ciphertext, not a direct 'url' field
             ciphertext = node.get("ciphertext")
-            url = f"https://www.upwork.com/jobs/~{ciphertext}" if ciphertext else "URL not available"
+            url = f"https://www.upwork.com/jobs/{ciphertext}" if ciphertext else "URL not available"
             
             message += f"{title}\n{url}\n\n"
 
