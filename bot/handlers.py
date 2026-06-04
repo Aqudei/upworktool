@@ -74,6 +74,8 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
             # Renamed the parsed response variable to avoid shadowing the request payload
             response_data = response.json()
             jobs = response_data.get("data", {}).get("marketplaceJobPostingsSearch", {})
+            total_count = jobs.get("totalCount", 0)
+            await context.bot.send_message(chat_id, f"Total jobs found: {total_count}")
             
             # Simplified the condition to check for empty dictionaries or None
             if not jobs or not jobs.get("edges"):
@@ -81,7 +83,7 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
                 return
             
             message = ""
-            for job in jobs.get("edges", [])[:5]:
+            for job in jobs.get("edges", []):
                 node = job.get("node", {})
                 title = node.get("title", "Untitled Job")
                 
