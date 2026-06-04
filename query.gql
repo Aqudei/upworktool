@@ -9,15 +9,7 @@ query SearchJobs($filter: MarketplaceJobPostingsSearchFilter) {
       node {
         id
         title
-        description
-        ciphertext
-        
-        skills {
-          name
-        }
-        client {
-          totalFeedback
-        }
+        ciphertext        
       }
     }
   }
