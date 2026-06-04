@@ -1,0 +1,24 @@
+query SearchJobs($filter: MarketplaceJobPostingsSearchFilter) {
+  marketplaceJobPostingsSearch(
+    marketPlaceJobFilter: $filter
+    searchType: USER_JOBS_SEARCH
+    sortAttributes: [{ field: RECENCY }]
+  ) {
+    totalCount
+    edges {
+      node {
+        id
+        title
+        description
+        ciphertext
+        
+        skills {
+          name
+        }
+        client {
+          totalFeedback
+        }
+      }
+    }
+  }
+}
