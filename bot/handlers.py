@@ -86,7 +86,7 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
                 
                 # Upwork job URLs are constructed using the ciphertext, not a direct 'url' field
                 ciphertext = node.get("ciphertext")
-                url = f"https://www.upwork.com/jobs/~{ciphertext}" if ciphertext else "URL not available"
+                url = f"https://www.upwork.com/jobs/{ciphertext}" if ciphertext else "URL not available"
                 
                 message += f"{title}\n{url}\n\n"
                 
