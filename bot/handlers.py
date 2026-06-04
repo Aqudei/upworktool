@@ -82,18 +82,32 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.send_message(chat_id, "No new jobs found.")
                 return
             
-            message = ""
+            MAX_MESSAGE_LENGTH = 4096  # Telegram's max message length minus a safety buffer
+            
+            message_buffer = ""
+
             for job in jobs.get("edges", []):
                 node = job.get("node", {})
                 title = node.get("title", "Untitled Job")
                 
-                # Upwork job URLs are constructed using the ciphertext, not a direct 'url' field
                 ciphertext = node.get("ciphertext")
                 url = f"https://www.upwork.com/jobs/{ciphertext}" if ciphertext else "URL not available"
                 
-                message += f"{title}\n{url}\n\n"
+                # Construct the string for the individual job
+                job_text = f"{title}\n{url}\n\n"
                 
-            await context.bot.send_message(chat_id, message)
+                # Check if appending this job exceeds the maximum allowed length
+                if len(message_buffer) + len(job_text) > MAX_MESSAGE_LENGTH:
+                    # Send the current buffer and reset it
+                    await context.bot.send_message(chat_id=chat_id, text=message_buffer)
+                    message_buffer = ""
+                    
+                # Append the job to the current buffer
+                message_buffer += job_text
+
+            # After exiting the loop, send any remaining data left in the buffer
+            if message_buffer.strip():
+                await context.bot.send_message(chat_id=chat_id, text=message_buffer)
 
 
     except PermissionError as e:
