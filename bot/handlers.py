@@ -46,7 +46,11 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
     }
-    access_token = context.user_data.get("access_token")
+    
+    with open("./upwork-token.json", "rt") as f:
+        token = json.loads(f.read())
+    
+    access_token = token.get("access_token")
     if not access_token:
         await context.bot.send_message(chat_id, "No access token found. Please /login first.")
         return
@@ -127,7 +131,7 @@ async def parse_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Access Token:\n{token['access_token']}"
     )
     
-    context.job_queue.run_repeating(fetch_jobs, interval=60*60, first=0, data=update.effective_chat.id)    
+    context.job_queue.run_repeating(fetch_jobs, interval=60*15, first=0, data=update.effective_chat.id)    
     await update.message.reply_text(
-        f"Job fetching started. You will receive updates every hour."
+        f"Job fetching started. You will receive updates every 15 minutes."
     )
