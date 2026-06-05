@@ -44,7 +44,7 @@ def setup_logging():
 logger = setup_logging()
 
 from bot.config import BOT_TOKEN
-from bot.commands import login, start, help_command
+from bot.commands import start, start, help_command
 from bot.handlers import echo, parse_redirect
 
 def main():
@@ -53,9 +53,6 @@ def main():
     # Commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
-
-    # Messages
-    app.add_handler(CommandHandler("login", login))
 
     app.add_handler(
         MessageHandler(

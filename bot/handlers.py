@@ -23,6 +23,8 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     
 async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
+    
+    
     chat_id = context.job.data
     
     try:
@@ -36,7 +38,7 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
         access_token = await get_valid_access_token(user_id=chat_id)
             
         if access_token in (None, ""):
-            await context.bot.send_message(chat_id, "No access token found. Please /login first.")
+            await context.bot.send_message(chat_id, "No access token found. Please /start first.")
             return
         
         headers["Authorization"] = f"Bearer {access_token}"

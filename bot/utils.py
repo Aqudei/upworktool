@@ -41,8 +41,8 @@ async def get_valid_access_token(user_id: int) -> str:
     expires_at = datetime.fromtimestamp(token_record["expires_at"], tz=timezone.utc)
     
     # 2. Add a buffer (e.g., 60 seconds) to prevent failing requests in transit
-    if datetime.now(timezone.utc) >= (expires_at - timedelta(seconds=60)):
-        logger.info(f"Token expired for user {user_id}. Executing refresh workflow.")
+    if datetime.now(timezone.utc) >= (expires_at - timedelta(minutes=60 * 2)):
+        logger.info(f"Token near expiration for user {user_id}. Executing refresh workflow.")
         
         # 3. Call your OAuth provider's refresh endpoint
         new_token_data = await refresh_oauth_token(token_record["refresh_token"])
