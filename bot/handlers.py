@@ -72,13 +72,14 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
                 
             response.raise_for_status()
             
-            if 'error' in response.text:
+            # Renamed the parsed response variable to avoid shadowing the request payload
+            response_data = response.json()
+            
+            if 'errors' in  response_data:
                 logger.error(f"GraphQL error response for chat {chat_id}: {response.text}")
                 await context.bot.send_message(chat_id, "An error occurred while fetching jobs. Please try again later.")
                 return
             
-            # Renamed the parsed response variable to avoid shadowing the request payload
-            response_data = response.json()
             jobs = response_data.get("data", {}).get("marketplaceJobPostingsSearch", {})
             total_count = jobs.get("totalCount", 0)
             await context.bot.send_message(chat_id, f"Total jobs found: {total_count}")
