@@ -24,8 +24,9 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
 async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
     
-    
     chat_id = context.job.data
+    user_data = context.application.user_data[chat_id]
+    
     
     try:
         await context.bot.send_message(chat_id, "Fetching new jobs...")
@@ -48,10 +49,13 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
             "query": query,
             "variables": {
                 "filter": {
-                    "pagination_eq": {"after": "0", "first":20}
+                    "pagination_eq": {"after": "0", "first":20},
                 }
             }
         } 
+        
+        if user_data.get("search"):
+            payload['variables']['filter']['searchExpression_eq'] = user_data.get("search")
         
         # Assuming the GraphQL query and variables are stored in a dictionary named 'payload'
         async with httpx.AsyncClient() as client:
