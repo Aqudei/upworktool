@@ -10,9 +10,11 @@ from telegram.ext import (
 
 def setup_logging():
     """Configures both console and file logging with rotation."""
-    
+
     # 1. Create a custom formatter
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
 
     # 2. Configure the root logger
     root_logger = logging.getLogger()
@@ -25,9 +27,7 @@ def setup_logging():
 
     # 4. Setup File Handler (10 MB per file, keep 5 backups)
     file_handler = RotatingFileHandler(
-        "bot_production.log", 
-        maxBytes=10 * 1024 * 1024, 
-        backupCount=5
+        "bot_production.log", maxBytes=10 * 1024 * 1024, backupCount=5
     )
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
@@ -39,12 +39,14 @@ def setup_logging():
 
     return logging.getLogger(__name__)
 
+
 # Initialize the logger
 logger = setup_logging()
 
 from bot.config import BOT_TOKEN
-from bot.commands import start, help_command, set_command,unset_command,list_command
+from bot.commands import start, help_command, set_command, unset_command, list_command
 from bot.handlers import echo, parse_redirect
+
 
 def main():
     app = Application.builder().token(BOT_TOKEN).build()

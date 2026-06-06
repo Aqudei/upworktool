@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = "User data available:\n\n"
-    for k, v in context.user_data:
+    for k, v in context.user_data.items():
         message += f"{k} = {v}\n"
 
     await update.message.reply_text(message)
