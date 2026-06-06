@@ -8,7 +8,6 @@ from telegram.ext import (
 )
 
 
-
 def setup_logging():
     """Configures both console and file logging with rotation."""
     
@@ -44,7 +43,7 @@ def setup_logging():
 logger = setup_logging()
 
 from bot.config import BOT_TOKEN
-from bot.commands import start, start, help_command
+from bot.commands import start, help_command, set_command
 from bot.handlers import echo, parse_redirect
 
 def main():
@@ -53,6 +52,7 @@ def main():
     # Commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("set", set_command))
 
     app.add_handler(
         MessageHandler(
