@@ -28,6 +28,8 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
     user_data = context.application.user_data[chat_id]
     
     
+    logger.debug(context.application.user_data)
+    
     try:
         await context.bot.send_message(chat_id, "Fetching new jobs...")
 
