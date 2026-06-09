@@ -8,6 +8,9 @@ from .oauth import get_authorization_url
 
 logger = logging.getLogger(__name__)
 
+async def fetch_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await fetch_jobs(context)
+
 async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     message = "User data available:\n\n"
