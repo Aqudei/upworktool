@@ -144,7 +144,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         if not current_jobs:
             context.job_queue.run_repeating(
-                fetch_jobs_callback, interval=60 * 15, first=0, data=chat_id, name=job_name
+                fetch_jobs_callback, interval=60 * 20, first=0, data=chat_id, name=job_name
             )
             await update.message.reply_text(
                 "Background job fetching has been successfully resumed."

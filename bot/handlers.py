@@ -188,7 +188,7 @@ async def parse_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # Schedule the new background job
         context.job_queue.run_repeating(
             fetch_jobs_callback, 
-            interval=60 * 15, 
+            interval=60 * 20, 
             first=0, 
             data=update.effective_chat.id,
             name=job_name
