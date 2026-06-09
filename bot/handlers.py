@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from bot.exceptions import UpworkAPIError, UpworkAuthError
 from telegram import Update
 from telegram.ext import ContextTypes
 import httpx
@@ -21,117 +22,124 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     await update.message.reply_text(f"You said: {text}")
     
+
+async def fetch_upwork_jobs(access_token: str, search_term: str) -> dict:
+    """
+    Fetches job postings from the Upwork GraphQL API.
+    """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Authorization": f"Bearer {access_token}"
+    }
     
-async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
+    query = Path("./query.gql").read_text()
+    payload = {
+        "query": query,
+        "variables": {
+            "filter": {
+                "pagination_eq": {"after": "0", "first": 20},
+                "titleExpression_eq": "(python OR integration OR urgent OR desktop OR export OR C# OR windows OR API OR Backend)",
+            }
+        }
+    } 
     
+    if search_term and search_term.strip():
+        payload['variables']['filter']['titleExpression_eq'] = search_term.strip()
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.upwork.com/graphql",
+            headers=headers,
+            json=payload 
+        )
+        
+        if response.status_code in [401, 403]:
+            raise UpworkAuthError("Access token expired or invalid.")
+            
+        response.raise_for_status()
+        response_data = response.json()
+        
+        if 'errors' in response_data:
+            logger.error(f"GraphQL error response: {response.text}")
+            raise UpworkAPIError("GraphQL response contained errors.")
+        
+        return response_data.get("data", {}).get("marketplaceJobPostingsSearch", {})
+
+
+async def send_job_messages(bot, chat_id: int, jobs_data: dict) -> None:
+    """
+    Formats and sends job listings to a Telegram chat, adhering to message length limits.
+    """
+    total_count = jobs_data.get("totalCount", 0)
+    await bot.send_message(chat_id, f"Total jobs found: {total_count}")
+    
+    edges = jobs_data.get("edges", [])
+    if not edges:
+        await bot.send_message(chat_id, "No new jobs found.")
+        return
+    
+    MAX_MESSAGE_LENGTH = 4096 
+    message_buffer = ""
+
+    for job in edges:
+        node = job.get("node", {})
+        title = node.get("title", "Untitled Job")
+        ciphertext = node.get("ciphertext")
+        url = f"https://www.upwork.com/jobs/{ciphertext}" if ciphertext else "URL not available"
+        
+        job_text = f"{title}\n{url}\n\n"
+        
+        if len(message_buffer) + len(job_text) > MAX_MESSAGE_LENGTH:
+            await bot.send_message(chat_id=chat_id, text=message_buffer)
+            message_buffer = ""
+            
+        message_buffer += job_text
+
+    if message_buffer.strip():
+        await bot.send_message(chat_id=chat_id, text=message_buffer)
+
+async def fetch_jobs_callback(context: ContextTypes.DEFAULT_TYPE):
+    """
+    Telegram job queue callback that orchestrates fetching Upwork jobs and sending them to the user.
+    """
     chat_id = context.job.data
-    user_data = context.application.user_data[chat_id]
+    user_data = context.application.user_data.get(chat_id, {})
     
-    search_term:str = user_data.get("search","")
-    
+    search_term: str = user_data.get("search", "")
     logger.debug(context.application.user_data)
     
     try:
         await context.bot.send_message(chat_id, f"Fetching new jobs...\nUsing search term: {search_term}\n")
 
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-        }
-        
+        # 1. Authentication Retrieval
         access_token = await get_valid_access_token(user_id=chat_id)
-            
-        if access_token in (None, ""):
+        if not access_token:
             await context.bot.send_message(chat_id, "No access token found. Please /start first.")
             return
-        
-        headers["Authorization"] = f"Bearer {access_token}"
-        
-        query = Path("./query.gql").read_text()
-        payload = {
-            "query": query,
-            "variables": {
-                "filter": {
-                    "pagination_eq": {"after": "0", "first":20},
-                    "titleExpression_eq": "(python OR integration OR urgent OR desktop OR export OR C# OR windows OR API OR Backend)",
-                }
-            }
-        } 
-        
-        if search_term.strip() not in [None,'']:
-            payload['variables']['filter']['titleExpression_eq'] = search_term
-        
-        
-        # Assuming the GraphQL query and variables are stored in a dictionary named 'payload'
-        async with httpx.AsyncClient() as client:
-            # GraphQL requests require a POST method and a JSON payload
-            response = await client.post(
-                "https://api.upwork.com/graphql",
-                headers=headers,
-                json=payload 
-            )
-            
-            if response.status_code in [401, 403]:
-                await context.bot.send_message(chat_id, "Access token expired or invalid. Please /login again.")
-                return
-                
-            response.raise_for_status()
-            
-            # Renamed the parsed response variable to avoid shadowing the request payload
-            response_data = response.json()
-            
-            if 'errors' in  response_data:
-                logger.error(f"GraphQL error response for chat {chat_id}: {response.text}")
-                await context.bot.send_message(chat_id, "An error occurred while fetching jobs. Please try again later.")
-                return
-            
-            jobs = response_data.get("data", {}).get("marketplaceJobPostingsSearch", {})
-            total_count = jobs.get("totalCount", 0)
-            await context.bot.send_message(chat_id, f"Total jobs found: {total_count}")
-            
-            # Simplified the condition to check for empty dictionaries or None
-            if not jobs or not jobs.get("edges"):
-                await context.bot.send_message(chat_id, "No new jobs found.")
-                return
-            
-            MAX_MESSAGE_LENGTH = 4096  # Telegram's max message length minus a safety buffer
-            
-            message_buffer = ""
 
-            for job in jobs.get("edges", []):
-                node = job.get("node", {})
-                title = node.get("title", "Untitled Job")
-                
-                ciphertext = node.get("ciphertext")
-                url = f"https://www.upwork.com/jobs/{ciphertext}" if ciphertext else "URL not available"
-                
-                # Construct the string for the individual job
-                job_text = f"{title}\n{url}\n\n"
-                
-                # Check if appending this job exceeds the maximum allowed length
-                if len(message_buffer) + len(job_text) > MAX_MESSAGE_LENGTH:
-                    # Send the current buffer and reset it
-                    await context.bot.send_message(chat_id=chat_id, text=message_buffer)
-                    message_buffer = ""
-                    
-                # Append the job to the current buffer
-                message_buffer += job_text
+        # 2. Fetch Data from Upwork API
+        jobs_data = await fetch_upwork_jobs(access_token, search_term)
 
-            # After exiting the loop, send any remaining data left in the buffer
-            if message_buffer.strip():
-                await context.bot.send_message(chat_id=chat_id, text=message_buffer)
+        # 3. Dispatch Data to Telegram
+        await send_job_messages(context.bot, chat_id, jobs_data)
 
-
+    except UpworkAuthError:
+        await context.bot.send_message(chat_id, "Access token expired or invalid. Please /login again.")
+        
+    except UpworkAPIError:
+        await context.bot.send_message(chat_id, "An error occurred while fetching jobs from Upwork. Please try again later.")
+        
     except PermissionError as e:
-        # Handle the case where the refresh token itself has expired
         logger.warning(f"Terminal auth failure for chat {chat_id}: {e}")
         context.job.schedule_removal()
         await context.bot.send_message(
             chat_id=chat_id, 
             text="Your authentication session has fully expired. Please log in again using the /start or /auth command."
         )
+        
     except Exception as e:
-        logger.error(f"Error executing fetch_jobs for chat {chat_id}: {e}", exc_info=True)
+        logger.error(f"Unexpected error executing fetch_jobs for chat {chat_id}: {e}", exc_info=True)
     
         
 async def parse_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -179,7 +187,7 @@ async def parse_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
         # Schedule the new background job
         context.job_queue.run_repeating(
-            fetch_jobs, 
+            fetch_jobs_callback, 
             interval=60 * 15, 
             first=0, 
             data=update.effective_chat.id,
