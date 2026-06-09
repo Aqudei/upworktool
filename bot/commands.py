@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from bot.exceptions import UpworkAPIError, UpworkAuthError
-from .handlers import fetch_upwork_jobs, send_job_messages
+from .handlers import fetch_jobs_callback, fetch_upwork_jobs, send_job_messages
 from bot.utils import get_valid_access_token
 from .oauth import get_authorization_url
 
@@ -142,7 +142,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         if not current_jobs:
             context.job_queue.run_repeating(
-                fetch_job, interval=60 * 15, first=0, data=chat_id, name=job_name
+                fetch_jobs_callback, interval=60 * 15, first=0, data=chat_id, name=job_name
             )
             await update.message.reply_text(
                 "Background job fetching has been successfully resumed."
