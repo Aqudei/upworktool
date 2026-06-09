@@ -19,6 +19,8 @@ async def fetch_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user_data = context.user_data
     
     search_term: str = user_data.get("search", "")
+    search_field = user_data.get("search_field","titleExpression_eq")
+    
     logger.debug(context.application.user_data)
     
     try:
@@ -31,7 +33,7 @@ async def fetch_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             return
 
         # 2. Fetch Data from Upwork API
-        jobs_data = await fetch_upwork_jobs(access_token, search_term)
+        jobs_data = await fetch_upwork_jobs(access_token, search_term,search_field=search_field)
 
         # 3. Dispatch Data to Telegram
         await send_job_messages(context.bot, user_id, jobs_data)
