@@ -23,7 +23,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"You said: {text}")
     
 
-async def fetch_upwork_jobs(access_token: str, search_term: str, search_field:str='titleExpression_eq') -> dict:
+async def fetch_upwork_jobs(access_token: str, search_term: str, search_field:str='searchExpression_eq') -> dict:
     """
     Fetches job postings from the Upwork GraphQL API.
     """
@@ -107,7 +107,7 @@ async def fetch_jobs_callback(context: ContextTypes.DEFAULT_TYPE):
     user_data = context.application.user_data.get(chat_id, {})
     
     search_term: str = user_data.get("search", "")
-    search_field = user_data.get("search_field","titleExpression_eq")
+    search_field = user_data.get("search_field","searchExpression_eq")
     logger.debug(context.application.user_data)
     try:
         await context.bot.send_message(chat_id, f"Fetching new jobs...\nUsing search term: {search_term}\n")

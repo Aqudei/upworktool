@@ -19,7 +19,7 @@ async def fetch_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user_data = context.user_data
     
     search_term: str = user_data.get("search", "")
-    search_field = user_data.get("search_field","titleExpression_eq")
+    search_field = user_data.get("search_field","searchExpression_eq")
     
     logger.debug(context.application.user_data)
     
