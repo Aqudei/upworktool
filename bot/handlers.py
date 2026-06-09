@@ -27,11 +27,12 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data
     user_data = context.application.user_data[chat_id]
     
+    search_term:str = user_data.get("search","")
     
     logger.debug(context.application.user_data)
     
     try:
-        await context.bot.send_message(chat_id, "Fetching new jobs...")
+        await context.bot.send_message(chat_id, f"Fetching new jobs...\nUsing search term: {search_term}\n")
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36",
@@ -57,11 +58,8 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
             }
         } 
         
-        await context.bot.send_message(chat_id, f"Using search text: {user_data.get("search")}")
-        
-        if user_data.get("search"):
-            payload['variables']['filter']['titleExpression_eq'] = user_data.get("search")
-        
+        if search_term.strip() not in [None,'']:
+            payload['variables']['filter']['titleExpression_eq'] = search_term
         
         
         # Assuming the GraphQL query and variables are stored in a dictionary named 'payload'
