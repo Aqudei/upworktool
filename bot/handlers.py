@@ -52,12 +52,17 @@ async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
             "variables": {
                 "filter": {
                     "pagination_eq": {"after": "0", "first":20},
+                    "titleExpression_eq": "(python OR integration OR urgent OR desktop OR export OR C# OR windows OR API OR Backend)",
                 }
             }
         } 
         
+        await context.bot.send_message(chat_id, f"Using search text: {user_data.get("search")}")
+        
         if user_data.get("search"):
-            payload['variables']['filter']['searchExpression_eq'] = user_data.get("search")
+            payload['variables']['filter']['titleExpression_eq'] = user_data.get("search")
+        
+        
         
         # Assuming the GraphQL query and variables are stored in a dictionary named 'payload'
         async with httpx.AsyncClient() as client:
