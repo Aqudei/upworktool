@@ -39,7 +39,7 @@ async def fetch_upwork_jobs(access_token: str, search_term: str, search_field:st
         "variables": {
             "filter": {
                 "pagination_eq": {"after": "0", "first": 20},
-                search_field: "(python OR integration OR urgent OR desktop OR export OR C# OR windows OR API OR Backend)",
+                search_field: 'title:(python OR integration OR desktop OR "export tool" OR "import tool" OR "C#" OR ".NET" OR Windows OR API OR Backend) OR (title:urgent AND title:python)',
             }
         }
     } 
