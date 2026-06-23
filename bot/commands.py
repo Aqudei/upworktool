@@ -126,13 +126,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Available commands:\n/start\n/help")
 
 
-
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
 
+    context.user_data['search'] = 'title:(python OR integration OR desktop OR "export tool" OR "import tool" OR "C#" OR ".NET" OR Windows OR API OR Backend) OR (title:urgent AND title:python)'
+    context.user_data['search_field'] = "searchExpression_eq"
+    
     # Acknowledge the command immediately to ensure application responsiveness
     await update.message.reply_text("Verifying existing authentication status...")
 

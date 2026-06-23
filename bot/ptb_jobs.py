@@ -46,7 +46,7 @@ async def send_jobs_callback(context: ContextTypes.DEFAULT_TYPE):
     try:
         jobs_data = get_sending_jobs(chat_id)
         await send_job_messages(context.bot, chat_id, jobs_data)
-        doc_ids = [j['doc_id'] for j in jobs_data]
+        doc_ids = [j.doc_id for j in jobs_data]
         mark_sent(chat_id, doc_ids)
 
     except UpworkAuthError:
