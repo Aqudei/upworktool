@@ -31,6 +31,9 @@ async def fetch_upwork_jobs_async(access_token: str, search_term: str, search_fi
     if search_term and search_term.strip():
         payload['variables']['filter'][search_field] = search_term.strip()
 
+    logger.info("Fetching new jobs...")
+    logger.info(f"Search Term: {search_term}\nSearch Field:{search_field}")
+    
     async with httpx.AsyncClient() as client:
         response = await client.post(
             "https://api.upwork.com/graphql",
