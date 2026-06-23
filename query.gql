@@ -10,6 +10,7 @@ query SearchJobs($filter: MarketplaceJobPostingsSearchFilter) {
         id
         title
         ciphertext        
+        createdDateTime
       }
     }
   }

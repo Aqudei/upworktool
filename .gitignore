@@ -10,3 +10,5 @@ wheels/
 .venv
 upwork-token.json
 .env
+*.log
+data/
