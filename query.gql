@@ -9,7 +9,9 @@ query SearchJobs($filter: MarketplaceJobPostingsSearchFilter) {
       node {
         id
         title
-        ciphertext        
+        ciphertext
+        description
+        publishedDateTime 
       }
     }
   }
