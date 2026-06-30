@@ -28,7 +28,7 @@ def save_jobs(chat_id: int, jobs_data: dict) -> None:
             ciphertext = node.get("ciphertext")
             url = f"https://www.upwork.com/jobs/{ciphertext}" if ciphertext else "URL not available"
             createdDateTime = node.get("createdDateTime")
-
+            publishedDateTime = node.get("publishedDateTime")
             Job = Query()
             items = db.search((Job.ciphertext ==
                               ciphertext) & (Job.chat_id == chat_id))
@@ -43,6 +43,7 @@ def save_jobs(chat_id: int, jobs_data: dict) -> None:
                     "ciphertext": ciphertext,
                     "chat_id": chat_id,
                     "createdDateTime": createdDateTime,
+                    "publishedDateTime": publishedDateTime,
                     "description": node.get("description"),
                     "sent": False
                 }

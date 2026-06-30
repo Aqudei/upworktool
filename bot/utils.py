@@ -85,8 +85,9 @@ async def send_job_messages(bot, chat_id: int, jobs_data: list|None) -> None:
         title = node.get("title", "Untitled Job")
         ciphertext = node.get("ciphertext")
         url = f"https://www.upwork.com/jobs/{ciphertext}" if ciphertext else "URL not available"
-
-        job_text = f"{title}\n{url}\n\n"
+        createdDateTime = node.get("createdDateTime")
+        publishedDateTime = node.get("publishedDateTime")
+        job_text = f"{title}\n{url}\nPublished: {publishedDateTime}\n\n"
 
         if len(message_buffer) + len(job_text) > MAX_MESSAGE_LENGTH:
             await bot.send_message(chat_id=chat_id, text=message_buffer)

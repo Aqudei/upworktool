@@ -12,6 +12,7 @@ query SearchJobs($filter: MarketplaceJobPostingsSearchFilter) {
         ciphertext
         description
         publishedDateTime 
+        createdDateTime
       }
     }
   }
