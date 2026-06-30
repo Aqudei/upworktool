@@ -1,15 +1,13 @@
-import json
-from pathlib import Path
+import os
+import logging
 from telegram import Update
 from telegram.ext import ContextTypes
-import httpx
 from urllib.parse import urlparse, parse_qs
-import os
-from datetime import datetime, timedelta,timezone
-import logging
+from datetime import datetime, timedelta, timezone
 
 from bot.oauth import exchange_code_for_token
-from bot.utils import get_valid_access_token, save_token_to_db
+from bot.ptb_jobs import create_repeating_job, fetch_jobs_callback, send_jobs_callback
+from bot.utils import save_token_to_db
 
 CLIENT_ID = os.getenv("UPWORK_CLIENT_ID")
 CLIENT_SECRET = os.getenv("UPWORK_CLIENT_SECRET")
@@ -17,118 +15,12 @@ REDIRECT_URI = os.getenv("UPWORK_REDIRECT_URI")
 
 logger = logging.getLogger(__name__)
 
+
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     await update.message.reply_text(f"You said: {text}")
-    
-    
-async def fetch_jobs(context: ContextTypes.DEFAULT_TYPE):
-    
-    chat_id = context.job.data
-    user_data = context.application.user_data[chat_id]
-    
-    
-    try:
-        await context.bot.send_message(chat_id, "Fetching new jobs...")
-
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-        }
-        
-        access_token = await get_valid_access_token(user_id=chat_id)
-            
-        if access_token in (None, ""):
-            await context.bot.send_message(chat_id, "No access token found. Please /start first.")
-            return
-        
-        headers["Authorization"] = f"Bearer {access_token}"
-        
-        query = Path("./query.gql").read_text()
-        payload = {
-            "query": query,
-            "variables": {
-                "filter": {
-                    "pagination_eq": {"after": "0", "first":20},
-                }
-            }
-        } 
-        
-        if user_data.get("search"):
-            payload['variables']['filter']['searchExpression_eq'] = user_data.get("search")
-        
-        # Assuming the GraphQL query and variables are stored in a dictionary named 'payload'
-        async with httpx.AsyncClient() as client:
-            # GraphQL requests require a POST method and a JSON payload
-            response = await client.post(
-                "https://api.upwork.com/graphql",
-                headers=headers,
-                json=payload 
-            )
-            
-            if response.status_code in [401, 403]:
-                await context.bot.send_message(chat_id, "Access token expired or invalid. Please /login again.")
-                return
-                
-            response.raise_for_status()
-            
-            # Renamed the parsed response variable to avoid shadowing the request payload
-            response_data = response.json()
-            
-            if 'errors' in  response_data:
-                logger.error(f"GraphQL error response for chat {chat_id}: {response.text}")
-                await context.bot.send_message(chat_id, "An error occurred while fetching jobs. Please try again later.")
-                return
-            
-            jobs = response_data.get("data", {}).get("marketplaceJobPostingsSearch", {})
-            total_count = jobs.get("totalCount", 0)
-            await context.bot.send_message(chat_id, f"Total jobs found: {total_count}")
-            
-            # Simplified the condition to check for empty dictionaries or None
-            if not jobs or not jobs.get("edges"):
-                await context.bot.send_message(chat_id, "No new jobs found.")
-                return
-            
-            MAX_MESSAGE_LENGTH = 4096  # Telegram's max message length minus a safety buffer
-            
-            message_buffer = ""
-
-            for job in jobs.get("edges", []):
-                node = job.get("node", {})
-                title = node.get("title", "Untitled Job")
-                
-                ciphertext = node.get("ciphertext")
-                url = f"https://www.upwork.com/jobs/{ciphertext}" if ciphertext else "URL not available"
-                
-                # Construct the string for the individual job
-                job_text = f"{title}\n{url}\n\n"
-                
-                # Check if appending this job exceeds the maximum allowed length
-                if len(message_buffer) + len(job_text) > MAX_MESSAGE_LENGTH:
-                    # Send the current buffer and reset it
-                    await context.bot.send_message(chat_id=chat_id, text=message_buffer)
-                    message_buffer = ""
-                    
-                # Append the job to the current buffer
-                message_buffer += job_text
-
-            # After exiting the loop, send any remaining data left in the buffer
-            if message_buffer.strip():
-                await context.bot.send_message(chat_id=chat_id, text=message_buffer)
 
 
-    except PermissionError as e:
-        # Handle the case where the refresh token itself has expired
-        logger.warning(f"Terminal auth failure for chat {chat_id}: {e}")
-        context.job.schedule_removal()
-        await context.bot.send_message(
-            chat_id=chat_id, 
-            text="Your authentication session has fully expired. Please log in again using the /start or /auth command."
-        )
-    except Exception as e:
-        logger.error(f"Error executing fetch_jobs for chat {chat_id}: {e}", exc_info=True)
-    
-        
 async def parse_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = update.message.text.strip()
 
@@ -150,7 +42,8 @@ async def parse_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         token_data = await exchange_code_for_token(code)
 
         if not token_data or "access_token" not in token_data:
-            logger.error("Token exchange failed or returned invalid data: %s", token_data)
+            logger.error(
+                "Token exchange failed or returned invalid data: %s", token_data)
             await update.message.reply_text("Authentication failed. Please try again.")
             return
 
@@ -166,23 +59,14 @@ async def parse_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             expires_at=expires_at.timestamp()
         )
 
-        # Clear existing jobs for this chat to prevent duplicate polling
-        job_name = f"fetch_jobs_{update.effective_chat.id}"
-        current_jobs = context.job_queue.get_jobs_by_name(job_name)
-        for job in current_jobs:
-            job.schedule_removal()
+        chat_id = update.effective_chat.id
 
-        # Schedule the new background job
-        context.job_queue.run_repeating(
-            fetch_jobs, 
-            interval=60 * 15, 
-            first=0, 
-            data=update.effective_chat.id,
-            name=job_name
-        )    
-        
+        await create_repeating_job(context, f"fetch_jobs_{chat_id}", update.effective_chat.id, fetch_jobs_callback, interval_minutes=10)
+        await create_repeating_job(context, f"send_jobs_{chat_id}", chat_id, send_jobs_callback, interval_minutes=10)
+
         await update.message.reply_text("Authentication successful. Job fetching started. You will receive updates every 15 minutes.")
 
     except Exception as e:
-        logger.error("Unexpected error during OAuth redirect parsing: %s", e, exc_info=True)
+        logger.error(
+            "Unexpected error during OAuth redirect parsing: %s", e, exc_info=True)
         await update.message.reply_text("An internal error occurred during the authentication process.")

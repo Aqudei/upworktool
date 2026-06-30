@@ -2,15 +2,72 @@ import logging
 
 from telegram import Update
 from telegram.ext import ContextTypes
-from .handlers import fetch_jobs
-from bot.utils import get_valid_access_token
+
+from bot.api import fetch_upwork_jobs_async
+from bot.exceptions import UpworkAPIError, UpworkAuthError
+from bot.models import save_jobs
+from bot.ptb_jobs import create_repeating_job, send_jobs_callback
+from .handlers import fetch_jobs_callback
+from bot.utils import get_valid_access_token, send_job_messages
 from .oauth import get_authorization_url
 
 logger = logging.getLogger(__name__)
 
+
+async def fetch_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Telegram job queue callback that orchestrates fetching Upwork jobs and sending them to the user.
+    """
+
+    user_id = update.effective_user.id
+    user_data = context.user_data
+
+    search_term: str = user_data.get("search", "")
+    search_field = user_data.get("search_field", "searchExpression_eq")
+
+    logger.debug(context.application.user_data)
+
+    try:
+        await context.bot.send_message(user_id, f"Fetching new jobs...\nUsing search term: {search_term}\n")
+
+        # 1. Authentication Retrieval
+        access_token = await get_valid_access_token(user_id=user_id)
+        if not access_token:
+            await context.bot.send_message(user_id, "No access token found. Please /start first.")
+            return
+
+        # 2. Fetch Data from Upwork API
+        jobs_data = await fetch_upwork_jobs_async(access_token, search_term, search_field=search_field)
+        save_jobs(user_id, jobs_data)
+
+        # 3. Dispatch Data to Telegram
+        await send_job_messages(context.bot, user_id, jobs_data)
+
+    except UpworkAuthError:
+        await context.bot.send_message(user_id, "Access token expired or invalid. Please /login again.")
+
+    except UpworkAPIError:
+        await context.bot.send_message(user_id, "An error occurred while fetching jobs from Upwork. Please try again later.")
+
+    except PermissionError as e:
+        logger.warning(f"Terminal auth failure for chat {user_id}: {e}")
+        context.job.schedule_removal()
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="Your authentication session has fully expired. Please log in again using the /start or /auth command."
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Unexpected error executing fetch_jobs for chat {user_id}: {e}", exc_info=True)
+
+
 async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
     message = "User data available:\n\n"
-    for k, v in context.user_data.items():
+    user_data = context.application.user_data[user_id]
+
+    for k, v in user_data.items():
         message += f"{k} = {v}\n"
 
     await update.message.reply_text(message)
@@ -73,6 +130,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
 
+    context.user_data['search'] = 'title:(python OR integration OR desktop OR "export tool" OR "import tool" OR "C#" OR ".NET" OR Windows OR API OR Backend) OR (title:urgent AND title:python)'
+    context.user_data['search_field'] = "searchExpression_eq"
+    
     # Acknowledge the command immediately to ensure application responsiveness
     await update.message.reply_text("Verifying existing authentication status...")
 
@@ -87,18 +147,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
         # Optional: Ensure the background polling job is active if the user restarts the bot
-        job_name = f"fetch_jobs_{chat_id}"
-        current_jobs = context.job_queue.get_jobs_by_name(job_name)
 
-        if not current_jobs:
-            context.job_queue.run_repeating(
-                fetch_jobs, interval=60 * 15, first=0, data=chat_id, name=job_name
-            )
-            await update.message.reply_text(
-                "Background job fetching has been successfully resumed."
-            )
-
-        return
+        await create_repeating_job(context, f"fetch_jobs_{chat_id}", chat_id, fetch_jobs_callback, interval_minutes=10)
+        await create_repeating_job(context, f"send_jobs_{chat_id}", chat_id, send_jobs_callback, interval_minutes=10)
 
     except (ValueError, PermissionError) as e:
         # ValueError implies no database record exists.

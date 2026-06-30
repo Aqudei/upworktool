@@ -3,6 +3,9 @@ import secrets
 from urllib.parse import urlencode
 
 import httpx
+import dotenv
+
+dotenv .load_dotenv()
 
 CLIENT_ID = os.getenv("UPWORK_CLIENT_ID")
 REDIRECT_URI = os.getenv("UPWORK_REDIRECT_URI")

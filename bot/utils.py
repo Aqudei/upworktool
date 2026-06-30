@@ -68,3 +68,31 @@ async def get_valid_access_token(user_id: int) -> str:
 
     # 5. Token is still valid; return the existing one
     return token_record["access_token"]
+
+
+async def send_job_messages(bot, chat_id: int, jobs_data: list|None) -> None:
+    """
+    Formats and sends job listings to a Telegram chat, adhering to message length limits.
+    """
+    # await bot.send_message(chat_id, f"Total jobs found: {total_count}")
+    if not jobs_data or len(jobs_data)<=0:
+        return
+
+    MAX_MESSAGE_LENGTH = 4096
+    message_buffer = ""
+
+    for node in jobs_data:
+        title = node.get("title", "Untitled Job")
+        ciphertext = node.get("ciphertext")
+        url = f"https://www.upwork.com/jobs/{ciphertext}" if ciphertext else "URL not available"
+
+        job_text = f"{title}\n{url}\n\n"
+
+        if len(message_buffer) + len(job_text) > MAX_MESSAGE_LENGTH:
+            await bot.send_message(chat_id=chat_id, text=message_buffer)
+            message_buffer = ""
+
+        message_buffer += job_text
+
+    if message_buffer.strip():
+        await bot.send_message(chat_id=chat_id, text=message_buffer)
