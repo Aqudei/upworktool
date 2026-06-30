@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta, timezone
 import json
 import logging
-
+from dateutil import parser as dtparser
+import pytz
 from bot.oauth import refresh_oauth_token
 
 logger = logging.getLogger(__name__)
@@ -86,7 +87,20 @@ async def send_job_messages(bot, chat_id: int, jobs_data: list|None) -> None:
         ciphertext = node.get("ciphertext")
         url = f"https://www.upwork.com/jobs/{ciphertext}" if ciphertext else "URL not available"
         createdDateTime = node.get("createdDateTime")
-        publishedDateTime = node.get("publishedDateTime")
+        
+        publishedDateTime = node.get("publishedDateTime",None)
+        if publishedDateTime not in [None, ""]:
+            try:
+                dt = dtparser.isoparse(publishedDateTime)
+
+                local_tz = pytz.timezone("Asia/Manila")
+                dt_local = dt.astimezone(local_tz)
+
+                publishedDateTime = dt_local.strftime("%Y-%m-%d %H:%M:%S %Z")
+            except Exception as e:
+                logger.error(f"Error parsing publishedDateTime: {publishedDateTime}. Error: {e}")
+                publishedDateTime = ""
+                
         job_text = f"{title}\n{url}\nPublished: {publishedDateTime}\n\n"
 
         if len(message_buffer) + len(job_text) > MAX_MESSAGE_LENGTH:
