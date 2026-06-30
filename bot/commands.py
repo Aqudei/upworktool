@@ -5,7 +5,7 @@ from telegram.ext import ContextTypes
 
 from bot.api import fetch_upwork_jobs_async
 from bot.exceptions import UpworkAPIError, UpworkAuthError
-from bot.models import save_jobs
+from bot.models import get_sending_jobs, mark_sent, save_jobs
 from bot.ptb_jobs import create_repeating_job, send_jobs_callback
 from .handlers import fetch_jobs_callback
 from bot.utils import get_valid_access_token, send_job_messages
@@ -39,10 +39,12 @@ async def fetch_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         # 2. Fetch Data from Upwork API
         jobs_data = await fetch_upwork_jobs_async(access_token, search_term, search_field=search_field)
         save_jobs(user_id, jobs_data)
-
+        jobs_data = get_sending_jobs(user_id)
         # 3. Dispatch Data to Telegram
         await send_job_messages(context.bot, user_id, jobs_data)
-
+        doc_ids = [j.doc_id for j in jobs_data]
+        mark_sent(user_id, doc_ids)
+        
     except UpworkAuthError:
         await context.bot.send_message(user_id, "Access token expired or invalid. Please /login again.")
 
